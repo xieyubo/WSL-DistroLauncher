@@ -11,7 +11,7 @@ bool DistributionInfo::CreateUser(std::wstring_view userName)
     DWORD exitCode;
     std::wstring commandLine = L"/usr/sbin/adduser --quiet --gecos '' ";
     commandLine += userName;
-    HRESULT hr = g_wslApi.WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
+    HRESULT hr = g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
     if ((FAILED(hr)) || (exitCode != 0)) {
         return false;
     }
@@ -19,13 +19,13 @@ bool DistributionInfo::CreateUser(std::wstring_view userName)
     // Add the user account to any relevant groups.
     commandLine = L"/usr/sbin/usermod -aG adm,cdrom,sudo,dip,plugdev ";
     commandLine += userName;
-    hr = g_wslApi.WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
+    hr = g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
     if ((FAILED(hr)) || (exitCode != 0)) {
 
         // Delete the user if the group add command failed.
         commandLine = L"/usr/sbin/deluser ";
         commandLine += userName;
-        g_wslApi.WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
+        g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
         return false;
     }
 
@@ -45,7 +45,7 @@ ULONG DistributionInfo::QueryUid(std::wstring_view userName)
         command += userName;
         int returnValue = 0;
         HANDLE child;
-        HRESULT hr = g_wslApi.WslLaunch(command.c_str(), true, GetStdHandle(STD_INPUT_HANDLE), writePipe, GetStdHandle(STD_ERROR_HANDLE), &child);
+        HRESULT hr = g_wslApi->WslLaunch(command.c_str(), true, GetStdHandle(STD_INPUT_HANDLE), writePipe, GetStdHandle(STD_ERROR_HANDLE), &child);
         if (SUCCEEDED(hr)) {
             // Wait for the child to exit and ensure process exited successfully.
             WaitForSingleObject(child, INFINITE);

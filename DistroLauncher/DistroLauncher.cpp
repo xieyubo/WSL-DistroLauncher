@@ -4,6 +4,8 @@
 //
 
 #include "stdafx.h"
+#include <filesystem>
+#include <memory>
 
 // Commandline arguments: 
 #define ARG_CONFIG              L"config"
@@ -15,7 +17,7 @@
 
 // Helper class for calling WSL Functions:
 // https://msdn.microsoft.com/en-us/library/windows/desktop/mt826874(v=vs.85).aspx
-WslApiLoader g_wslApi(DistributionInfo::Name);
+std::unique_ptr<WslApiLoader> g_wslApi;
 
 static HRESULT InstallDistribution(bool createUser);
 static HRESULT SetDefaultUser(std::wstring_view userName);
@@ -24,14 +26,14 @@ HRESULT InstallDistribution(bool createUser)
 {
     // Register the distribution.
     Helpers::PrintMessage(MSG_STATUS_INSTALLING);
-    HRESULT hr = g_wslApi.WslRegisterDistribution();
+    HRESULT hr = g_wslApi->WslRegisterDistribution();
     if (FAILED(hr)) {
         return hr;
     }
 
     // Delete /etc/resolv.conf to allow WSL to generate a version based on Windows networking information.
     DWORD exitCode;
-    hr = g_wslApi.WslLaunchInteractive(L"/bin/rm /etc/resolv.conf", true, &exitCode);
+    hr = g_wslApi->WslLaunchInteractive(L"/bin/rm /etc/resolv.conf", true, &exitCode);
     if (FAILED(hr)) {
         return hr;
     }
@@ -64,7 +66,7 @@ HRESULT SetDefaultUser(std::wstring_view userName)
         return E_INVALIDARG;
     }
 
-    HRESULT hr = g_wslApi.WslConfigureDistribution(uid, WSL_DISTRIBUTION_FLAGS_DEFAULT);
+    HRESULT hr = g_wslApi->WslConfigureDistribution(uid, WSL_DISTRIBUTION_FLAGS_DEFAULT);
     if (FAILED(hr)) {
         return hr;
     }
@@ -74,8 +76,17 @@ HRESULT SetDefaultUser(std::wstring_view userName)
 
 int wmain(int argc, wchar_t const *argv[])
 {
+    // Get current folder name as the part of the distribution name
+    std::filesystem::path appPath(argv[0]);
+    auto distributionName = appPath.parent_path().filename().wstring();
+    if (distributionName.empty()) {
+        distributionName = appPath.filename().stem().wstring();
+    }
+    std::replace(distributionName.begin(), distributionName.end(), L' ', L'.');
+    g_wslApi = std::make_unique<WslApiLoader>(distributionName);
+
     // Update the title bar of the console window.
-    SetConsoleTitleW(DistributionInfo::WindowTitle.c_str());
+    SetConsoleTitleW(distributionName.c_str());
 
     // Initialize a vector of arguments.
     std::vector<std::wstring_view> arguments;
@@ -85,7 +96,7 @@ int wmain(int argc, wchar_t const *argv[])
 
     // Ensure that the Windows Subsystem for Linux optional component is installed.
     DWORD exitCode = 1;
-    if (!g_wslApi.WslIsOptionalComponentInstalled()) {
+    if (!g_wslApi->WslIsOptionalComponentInstalled()) {
         Helpers::PrintMessage(MSG_MISSING_OPTIONAL_COMPONENT);
         if (arguments.empty()) {
             Helpers::PromptForInput();
@@ -97,7 +108,7 @@ int wmain(int argc, wchar_t const *argv[])
     // Install the distribution if it is not already.
     bool installOnly = ((arguments.size() > 0) && (arguments[0] == ARG_INSTALL));
     HRESULT hr = S_OK;
-    if (!g_wslApi.WslIsDistributionRegistered()) {
+    if (!g_wslApi->WslIsDistributionRegistered()) {
 
         // If the "--root" option is specified, do not create a user account.
         bool useRoot = ((installOnly) && (arguments.size() > 1) && (arguments[1] == ARG_INSTALL_ROOT));
@@ -117,7 +128,7 @@ int wmain(int argc, wchar_t const *argv[])
     // Parse the command line arguments.
     if ((SUCCEEDED(hr)) && (!installOnly)) {
         if (arguments.empty()) {
-            hr = g_wslApi.WslLaunchInteractive(L"", false, &exitCode);
+            hr = g_wslApi->WslLaunchInteractive(L"", false, &exitCode);
 
         } else if ((arguments[0] == ARG_RUN) ||
                    (arguments[0] == ARG_RUN_C)) {
@@ -128,7 +139,7 @@ int wmain(int argc, wchar_t const *argv[])
                 command += arguments[index];
             }
 
-            hr = g_wslApi.WslLaunchInteractive(command.c_str(), true, &exitCode);
+            hr = g_wslApi->WslLaunchInteractive(command.c_str(), true, &exitCode);
 
         } else if (arguments[0] == ARG_CONFIG) {
             hr = E_INVALIDARG;

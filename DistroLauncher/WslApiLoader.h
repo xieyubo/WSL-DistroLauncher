@@ -5,6 +5,7 @@
 
 #pragma once
 #include <wslapi.h>
+#include <memory>
 
 // This error definition is present in the Spring Creators Update SDK.
 #ifndef ERROR_LINUX_SUBSYSTEM_NOT_PRESENT
@@ -54,4 +55,4 @@ class WslApiLoader
     WSL_LAUNCH _launch;
 };
 
-extern WslApiLoader g_wslApi;
+extern std::unique_ptr<WslApiLoader> g_wslApi;
