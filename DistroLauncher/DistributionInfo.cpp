@@ -26,7 +26,19 @@ bool DistributionInfo::CreateUser(std::wstring_view userName)
     }
 
     // Add the user account to any relevant groups.
-    commandLine = L"/usr/sbin/usermod -aG adm,cdrom,sudo,dip,plugdev ";
+    commandLine = L"/usr/sbin/usermod -aG adm,cdrom,sudo,dip";
+    for (const auto* group: {L"plugdev"}) {
+        std::wstring grepCmd = std::wstring{L"grep -q "} + group + L" /etc/group"; 
+        hr = g_wslApi->WslLaunchInteractive(grepCmd.c_str(), true, &exitCode);
+        if ((FAILED(hr))) {
+            return false;
+        }
+        if (!exitCode) {
+            commandLine += L",";
+            commandLine += group;
+        }
+        commandLine += L" ";
+    }
     commandLine += userName;
     hr = g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
     if ((FAILED(hr)) || (exitCode != 0)) {

@@ -22,7 +22,7 @@ WslLaunch %1 failed with error: 0x%2!x!
 
 MessageId=1005 SymbolicName=MSG_USAGE
 Language=English
-Launches or configures a Linux distribution.
+Launches or configures a Linux distribution. (version: xyb.0.9.1)
 
 Usage: 
     <no args> 

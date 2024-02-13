@@ -94,6 +94,12 @@ int wmain(int argc, wchar_t const *argv[])
         arguments.push_back(argv[index]);
     }
 
+    if (arguments.size() == 1 && (arguments[0] == L"help" || arguments[0] == L"--help" || arguments[0] == L"-v" || arguments[0] == L"--version"))
+    {
+        Helpers::PrintMessage(MSG_USAGE);
+        return 0;
+    }
+
     // Ensure that the Windows Subsystem for Linux optional component is installed.
     DWORD exitCode = 1;
     if (!g_wslApi->WslIsOptionalComponentInstalled()) {
