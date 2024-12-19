@@ -26,28 +26,36 @@ bool DistributionInfo::CreateUser(std::wstring_view userName)
     }
 
     // Add the user account to any relevant groups.
-    commandLine = L"/usr/sbin/usermod -aG adm,cdrom,sudo,dip";
-    for (const auto* group: {L"plugdev"}) {
+    // Follow LSB spec, all these groups are optional, so only take action if the group exists.
+    bool foundGroup = false;
+    commandLine = L"/usr/sbin/usermod -aG ";
+    for (const auto* group: {L"adm", L"cdrom", L"sudo", L"dip", L"plugdev"}) {
         std::wstring grepCmd = std::wstring{L"grep -q "} + group + L" /etc/group"; 
         hr = g_wslApi->WslLaunchInteractive(grepCmd.c_str(), true, &exitCode);
-        if ((FAILED(hr))) {
+        if (FAILED(hr) || exitCode) {
+            continue;
+        }
+
+        if (foundGroup) {
+            commandLine += L",";
+        }
+        commandLine += group;
+        foundGroup = true;
+    }
+
+    if (foundGroup)
+    {
+        commandLine += L" ";
+        commandLine += userName;
+        hr = g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
+        if ((FAILED(hr)) || (exitCode != 0)) {
+
+            // Delete the user if the group add command failed.
+            commandLine = L"/usr/sbin/deluser ";
+            commandLine += userName;
+            g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
             return false;
         }
-        if (!exitCode) {
-            commandLine += L",";
-            commandLine += group;
-        }
-        commandLine += L" ";
-    }
-    commandLine += userName;
-    hr = g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
-    if ((FAILED(hr)) || (exitCode != 0)) {
-
-        // Delete the user if the group add command failed.
-        commandLine = L"/usr/sbin/deluser ";
-        commandLine += userName;
-        g_wslApi->WslLaunchInteractive(commandLine.c_str(), true, &exitCode);
-        return false;
     }
 
     return true;
